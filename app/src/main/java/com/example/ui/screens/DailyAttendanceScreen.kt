@@ -43,6 +43,7 @@ import com.example.ui.theme.*
 import com.example.util.DateUtils
 import com.example.util.ImageUtils
 import com.example.viewmodel.AttendanceViewModel
+import kotlinx.coroutines.launch
 import com.example.viewmodel.ClassViewModel
 import com.example.viewmodel.StudentViewModel
 
@@ -59,10 +60,13 @@ fun DailyAttendanceScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val isEducatorsClass = classId == "CLASS_EDUCATORS"
 
     LaunchedEffect(Unit) {
         EducatorManager.init(context)
+        com.example.data.repository.ClassPhotoManager.startListening(context)
+        com.example.data.repository.ClassPhotoManager.syncAllDailyPhotosFromCloud(context)
     }
 
     val uiState by attendanceViewModel.uiState.collectAsState()
@@ -208,6 +212,9 @@ fun DailyAttendanceScreen(
                 actions = {
                     IconButton(
                         onClick = {
+                            coroutineScope.launch {
+                                com.example.data.repository.ClassPhotoManager.syncAllDailyPhotosFromCloud(context)
+                            }
                             attendanceViewModel.refreshAttendanceData(classId = classId, className = className, dateIso = dateIso) { success, msg ->
                                 Toast.makeText(context, if (success) "✓ $msg" else "⚠️ $msg", Toast.LENGTH_SHORT).show()
                             }

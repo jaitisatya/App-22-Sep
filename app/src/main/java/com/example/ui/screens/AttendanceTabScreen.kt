@@ -67,6 +67,7 @@ fun AttendanceTabScreen(
         EducatorManager.init(context)
         ClassTimingManager.startListening(context)
         ClassPhotoManager.startListening(context)
+        ClassPhotoManager.syncAllDailyPhotosFromCloud(context)
     }
 
     val classes by classViewModel.activeClasses.collectAsState()
@@ -196,6 +197,9 @@ fun AttendanceTabScreen(
                     // Manual 1-Tap Sync with Cloud Firestore
                     IconButton(
                         onClick = {
+                            coroutineScope.launch {
+                                ClassPhotoManager.syncAllDailyPhotosFromCloud(context)
+                            }
                             attendanceViewModel.refreshAttendanceData { success, msg ->
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
@@ -598,8 +602,8 @@ fun AttendanceTabScreen(
                             }
                         }
 
-                        // Daily class photo for selected date with direct document SnapshotListener
-                        var classPhoto by remember(cls.classId, selectedDateIso) {
+                        // Daily class photo for selected date with direct document SnapshotListener & reactive to global version updates
+                        var classPhoto by remember(cls.classId, selectedDateIso, classPhotosVersion) {
                             mutableStateOf(ClassPhotoManager.getClassPhoto(context, cls.classId, selectedDateIso))
                         }
                         DisposableEffect(cls.classId, selectedDateIso) {
@@ -654,8 +658,8 @@ fun AttendanceTabScreen(
                             (record.classId.equals("CLASS_EDUCATORS", ignoreCase = true) || record.classId.contains("EDUCATOR", ignoreCase = true))
                         }
 
-                        // Daily photo for educators with direct document SnapshotListener
-                        var eduPhoto by remember(selectedDateIso) {
+                        // Daily photo for educators with direct document SnapshotListener & reactive to global version updates
+                        var eduPhoto by remember(selectedDateIso, classPhotosVersion) {
                             mutableStateOf(ClassPhotoManager.getClassPhoto(context, "CLASS_EDUCATORS", selectedDateIso))
                         }
                         DisposableEffect(selectedDateIso) {

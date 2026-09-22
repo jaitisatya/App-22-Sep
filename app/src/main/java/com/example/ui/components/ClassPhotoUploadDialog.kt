@@ -407,13 +407,17 @@ fun ClassPhotoUploadDialog(
                                 }
 
                                 if (compressedBase64.isNotBlank()) {
-                                    ClassPhotoManager.saveClassPhoto(context, classId, className, selectedDateIso, compressedBase64)
+                                    val uploaded = ClassPhotoManager.saveClassPhoto(context, classId, className, selectedDateIso, compressedBase64)
                                     withContext(Dispatchers.Main) {
                                         savedPhoto = compressedBase64
                                         pendingBitmap = null
                                         pendingUri = null
                                         isUploading = false
-                                        Toast.makeText(context, "Photo uploaded successfully (<= 100 KB)!", Toast.LENGTH_SHORT).show()
+                                        if (uploaded) {
+                                            Toast.makeText(context, "Photo uploaded to Cloud successfully!", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Photo saved locally, syncing to Cloud...", Toast.LENGTH_SHORT).show()
+                                        }
                                         onDismiss()
                                     }
                                 } else {

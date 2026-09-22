@@ -9,6 +9,7 @@ import com.example.data.entity.StudentEntity
 import com.example.data.entity.UserEntity
 import com.example.data.model.AttendanceStatus
 import com.example.data.model.Role
+import com.example.data.repository.ClassPhotoManager
 import com.example.util.ImageUtils
 import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.DocumentChange
@@ -67,7 +68,9 @@ class FirestoreSyncManager(
             try {
                 val settings = FirebaseFirestoreSettings.Builder()
                     .setLocalCacheSettings(
-                        PersistentCacheSettings.newBuilder().build()
+                        PersistentCacheSettings.newBuilder()
+                            .setSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                            .build()
                     )
                     .build()
                 db.firestoreSettings = settings
@@ -81,6 +84,7 @@ class FirestoreSyncManager(
             
             // Start real-time listeners
             startRealtimeListeners()
+            com.example.data.repository.ClassPhotoManager.startListening(context)
 
             // Run photo migration & sync in background only if version is supported
             scope.launch {
@@ -305,6 +309,13 @@ class FirestoreSyncManager(
                                     val teacherName = doc.getString("teacherName") ?: ""
                                     val createdTimestamp = doc.getLong("createdTimestamp") ?: System.currentTimeMillis()
                                     val lastModifiedTimestamp = doc.getLong("lastModifiedTimestamp") ?: System.currentTimeMillis()
+
+                                    // Real-time photo synchronization across devices
+                                    val photoUrl = doc.getString("photoUrl") ?: doc.getString("photoUri") ?: ""
+                                    val photoStoragePath = doc.getString("photoStoragePath") ?: ""
+                                    if (classId.isNotBlank() && date.isNotBlank() && (photoUrl.isNotBlank() || photoStoragePath.isNotBlank())) {
+                                        ClassPhotoManager.onAttendancePhotoReceived(context, classId, date, photoUrl, photoStoragePath)
+                                    }
 
                                     if (studentName.isNotBlank() && (!studentId.startsWith("JF") || studentId.isBlank())) {
                                         val matched = database.studentDao().getStudentByNameDirect(studentName)
@@ -593,6 +604,8 @@ class FirestoreSyncManager(
                 val batch = db.batch()
                 for (record in chunk) {
                     val docRef = db.collection("attendance_records").document(record.attendanceId)
+                    val photoUrl = ClassPhotoManager.getPhotoUrl(context, record.classId, record.date) ?: ""
+                    val photoStoragePath = ClassPhotoManager.getPhotoStoragePath(context, record.classId, record.date) ?: ""
                     val map = hashMapOf(
                         "attendanceId" to record.attendanceId,
                         "studentId" to record.studentId,
@@ -605,7 +618,9 @@ class FirestoreSyncManager(
                         "teacherId" to record.teacherId,
                         "teacherName" to record.teacherName,
                         "createdTimestamp" to record.createdTimestamp,
-                        "lastModifiedTimestamp" to record.lastModifiedTimestamp
+                        "lastModifiedTimestamp" to record.lastModifiedTimestamp,
+                        "photoUrl" to photoUrl,
+                        "photoStoragePath" to photoStoragePath
                     )
                     batch.set(docRef, map, SetOptions.merge())
                 }
@@ -625,6 +640,8 @@ class FirestoreSyncManager(
         val db = firestore ?: return@withContext
         try {
             val docRef = db.collection("attendance_records").document(record.attendanceId)
+            val photoUrl = ClassPhotoManager.getPhotoUrl(context, record.classId, record.date) ?: ""
+            val photoStoragePath = ClassPhotoManager.getPhotoStoragePath(context, record.classId, record.date) ?: ""
             val map = hashMapOf(
                 "attendanceId" to record.attendanceId,
                 "studentId" to record.studentId,
@@ -637,7 +654,9 @@ class FirestoreSyncManager(
                 "teacherId" to record.teacherId,
                 "teacherName" to record.teacherName,
                 "createdTimestamp" to record.createdTimestamp,
-                "lastModifiedTimestamp" to record.lastModifiedTimestamp
+                "lastModifiedTimestamp" to record.lastModifiedTimestamp,
+                "photoUrl" to photoUrl,
+                "photoStoragePath" to photoStoragePath
             )
             docRef.set(map, SetOptions.merge()).await()
             Log.d("FirestoreSyncManager", "Real-time pushed attendance for ${record.studentName}: ${record.status.name}")
@@ -672,6 +691,12 @@ class FirestoreSyncManager(
                         val teacherName = doc.getString("teacherName") ?: ""
                         val createdTimestamp = doc.getLong("createdTimestamp") ?: System.currentTimeMillis()
                         val lastModifiedTimestamp = doc.getLong("lastModifiedTimestamp") ?: System.currentTimeMillis()
+
+                        val photoUrl = doc.getString("photoUrl") ?: doc.getString("photoUri") ?: ""
+                        val photoStoragePath = doc.getString("photoStoragePath") ?: ""
+                        if (classId.isNotBlank() && date.isNotBlank() && (photoUrl.isNotBlank() || photoStoragePath.isNotBlank())) {
+                            ClassPhotoManager.onAttendancePhotoReceived(context, classId, date, photoUrl, photoStoragePath)
+                        }
 
                         val matchedStudent = studentByName[studentName.trim().lowercase()]
                         if (matchedStudent != null && (studentId.isBlank() || !studentId.startsWith("JF"))) {
@@ -1053,6 +1078,12 @@ class FirestoreSyncManager(
                             val teacherName = doc.getString("teacherName") ?: ""
                             val createdTimestamp = doc.getLong("createdTimestamp") ?: System.currentTimeMillis()
                             val lastModifiedTimestamp = doc.getLong("lastModifiedTimestamp") ?: System.currentTimeMillis()
+
+                            val photoUrl = doc.getString("photoUrl") ?: doc.getString("photoUri") ?: ""
+                            val photoStoragePath = doc.getString("photoStoragePath") ?: ""
+                            if (classId.isNotBlank() && date.isNotBlank() && (photoUrl.isNotBlank() || photoStoragePath.isNotBlank())) {
+                                ClassPhotoManager.onAttendancePhotoReceived(context, classId, date, photoUrl, photoStoragePath)
+                            }
 
                             records.add(
                                 AttendanceRecordEntity(

@@ -40,6 +40,22 @@ class JaitiApplication : Application() {
                 )
                 Log.d("JaitiApplication", "Firebase App Check initialized with PlayIntegrityAppCheckProviderFactory")
             }
+
+            // Configure Firestore offline persistence before any Firestore instance operations
+            try {
+                val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                val settings = com.google.firebase.firestore.FirebaseFirestoreSettings.Builder()
+                    .setLocalCacheSettings(
+                        com.google.firebase.firestore.PersistentCacheSettings.newBuilder()
+                            .setSizeBytes(com.google.firebase.firestore.FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                            .build()
+                    )
+                    .build()
+                db.firestoreSettings = settings
+                Log.d("JaitiApplication", "Firestore persistent cache configured with unlimited disk cache for offline attendance")
+            } catch (fe: Throwable) {
+                Log.w("JaitiApplication", "Firestore persistent settings note: ${fe.message}")
+            }
         } catch (e: Throwable) {
             Log.w("JaitiApplication", "FirebaseApp / AppCheck init note: ${e.message}")
         }
