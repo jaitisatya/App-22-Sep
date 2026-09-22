@@ -1,0 +1,8 @@
+{
+  "name": "Jaiti Foundation",
+  "description": "Daily class-wise student attendance management application for Jaiti Foundation teachers and administrators.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
